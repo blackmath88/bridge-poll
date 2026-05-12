@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bridge-poll · Change Management</title>
+<style>
+  :root {
+    --bg: #F5F2EE;
+    --bg-card: #FFFFFF;
+    --bg-dark: #1A1A1A;
+    --bg-panel: #F0EDE9;
+    --text: #1D1D1F;
+    --text-s: #86868B;
+    --text-t: #AEAEB2;
+    --border: #D2D2D7;
+    --border-l: #E5E5EA;
+    --pink: #E8175D;
+    --gold: #D4940A;
+    --teal: #1A8A7D;
+    --purple: #6B3FA0;
+    --orange: #C45D20;
+    --mint: #30B880;
+    --blue: #0071E3;
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+
+  /* ── GEO ART PANELS ── */
+  .geo-panel { background:var(--bg-dark); overflow:hidden; position:relative; }
+  .geo-panel svg { width:100%; height:100%; display:block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes spinR { to { transform:rotate(-360deg); } }
+  @keyframes drift { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  .gs { animation:spin 35s linear infinite; transform-origin:center; }
+  .gr { animation:spinR 28s linear infinite; transform-origin:center; }
+  .gd { animation:drift 8s ease-in-out infinite; }
+  .gd2 { animation:drift 11s ease-in-out infinite 2s; }
+  .gd3 { animation:drift 9s ease-in-out infinite 4s; }
+
+  /* ── ROLE SELECT ── */
+  #role-select { display:flex; flex-direction:column; align-items:center; min-height:100vh; }
+  .role-hero { width:100%; height:220px; }
+  .role-content { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.5rem; padding:2rem; margin-top:-40px; }
+  .brand-logo { font-size:2.8rem; font-weight:700; letter-spacing:-0.04em; }
+  .brand-logo span { color:var(--pink); }
+  .brand-sub { font-size:0.8rem; color:var(--text-s); margin-top:-0.5rem; }
+  .session-badge { font-size:0.75rem; font-weight:500; color:var(--text-s); background:var(--bg-card); border:1px solid var(--border-l); padding:0.4rem 1.4rem; border-radius:100px; }
+  .role-cards { display:flex; gap:1.25rem; flex-wrap:wrap; justify-content:center; }
+  .role-card { width:260px; background:var(--bg-card); border:1px solid var(--border-l); border-radius:16px; cursor:pointer; transition:all 0.25s; overflow:hidden; }
+  .role-card:hover { border-color:var(--border); transform:translateY(-2px); box-shadow:0 8px 30px rgba(0,0,0,0.06); }
+  .role-card-geo { width:100%; height:160px; }
+  .role-card-body { padding:1.2rem 1.4rem; }
+  .role-card-label { font-size:1.05rem; font-weight:600; letter-spacing:-0.01em; margin-bottom:0.15rem; }
+  .role-card-desc { font-size:0.8rem; color:var(--text-s); line-height:1.35; }
+
+  /* ── HEADER ── */
+  .header { background:rgba(245,242,238,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border-l); padding:0 1.5rem; height:48px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+  .h-logo { font-size:1rem; font-weight:600; letter-spacing:-0.02em; }
+  .h-logo span { color:var(--pink); }
+  .h-center { font-size:0.75rem; font-weight:500; color:var(--text-s); }
+  .h-right { display:flex; align-items:center; gap:1rem; }
+  .h-status { display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; font-weight:500; color:var(--text-s); }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--mint); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .h-back { font-size:0.8rem; font-weight:500; color:var(--blue); cursor:pointer; background:none; border:none; font-family:var(--font); }
+
+  /* ── PRESENTER ── */
+  #presenter-view { display:none; min-height:100vh; }
+  .p-layout { display:grid; grid-template-columns:1fr 260px; min-height:calc(100vh - 48px); }
+  .p-main { display:flex; flex-direction:column; }
+  .p-geo-bar { width:100%; height:120px; flex-shrink:0; }
+  .p-content { flex:1; padding:1.5rem 2.5rem 2rem; display:flex; flex-direction:column; }
+
+  /* Steps */
+  .steps { display:flex; align-items:center; gap:0; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .step-pill { padding:0.3rem 0.75rem; border-radius:100px; font-size:0.7rem; font-weight:500; color:var(--text-t); background:transparent; border:1px solid var(--border-l); cursor:pointer; transition:all 0.25s; white-space:nowrap; }
+  .step-pill.active { background:var(--text); color:white; border-color:var(--text); }
+  .step-pill.done { background:var(--bg-card); color:var(--text); border-color:var(--border); }
+  .step-conn { width:16px; height:1px; background:var(--border-l); flex-shrink:0; }
+
+  .p-q { font-size:1.7rem; font-weight:700; letter-spacing:-0.03em; line-height:1.15; margin-bottom:0.3rem; }
+  .p-sub { font-size:0.85rem; color:var(--text-s); margin-bottom:1.25rem; line-height:1.45; max-width:580px; }
+
+  /* Cloud */
+  .cloud-box { flex:1; background:var(--bg-card); border:1px solid var(--border-l); border-radius:12px; position:relative; overflow:hidden; min-height:300px; }
+  .cloud-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-t); font-size:0.85rem; gap:0.5rem; }
+  .cloud-word { position:absolute; font-weight:600; white-space:nowrap; cursor:default; opacity:0; transform:scale(0.6) translateY(8px); transition:all 0.5s cubic-bezier(0.23,1,0.32,1); letter-spacing:-0.02em; }
+  .cloud-word.visible { opacity:1; transform:scale(1) translateY(0); }
+
+  /* Pivot panel */
+  .pivot-box { background:var(--bg-dark); color:white; border-radius:12px; padding:1.5rem 2rem; flex:1; }
+  .pivot-label { font-size:0.6rem; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:0.6rem; display:flex; align-items:center; gap:0.4rem; }
+  .pivot-label::before { content:''; width:10px; height:2px; background:var(--pink); }
+  .pivot-box p { font-size:0.92rem; line-height:1.6; }
+  .pivot-box p+p { margin-top:0.8rem; }
+  .pivot-box em { font-style:normal; color:var(--gold); }
+
+  /* Reflect cards */
+  .reflect-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; flex:1; align-content:start; }
+  .reflect-card { background:var(--bg-card); border:1px solid var(--border-l); border-radius:12px; padding:1.25rem; animation:fadeUp 0.4s ease both; }
+  .reflect-card:nth-child(2){animation-delay:0.06s} .reflect-card:nth-child(3){animation-delay:0.12s} .reflect-card:nth-child(4){animation-delay:0.18s}
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .reflect-card h4 { font-size:0.85rem; font-weight:600; margin-bottom:0.3rem; letter-spacing:-0.01em; }
+  .reflect-card p { font-size:0.8rem; color:var(--text-s); line-height:1.45; }
+  .accent-bar { width:24px; height:3px; border-radius:2px; margin-bottom:0.6rem; }
+
+  /* Sidebar */
+  .p-sidebar { background:var(--bg-card); border-left:1px solid var(--border-l); padding:1.25rem; display:flex; flex-direction:column; gap:1rem; }
+  .sb-label { font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-s); margin-bottom:0.5rem; }
+  .qr-frame { width:100%; aspect-ratio:1; border:1px solid var(--border-l); border-radius:12px; background:white; padding:0.6rem; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .qr-frame canvas { width:100%!important; height:100%!important; }
+  .stat-pair { display:flex; justify-content:space-between; }
+  .stat-block { text-align:center; flex:1; }
+  .stat-num { font-size:1.6rem; font-weight:700; letter-spacing:-0.03em; }
+  .stat-txt { font-size:0.65rem; font-weight:500; color:var(--text-s); margin-top:0.05rem; }
+  .feed-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:0.3rem; min-height:0; }
+  .feed-row { padding:0.4rem 0.6rem; font-size:0.75rem; border-left:3px solid var(--teal); background:var(--bg-panel); border-radius:0 6px 6px 0; animation:feedIn 0.3s ease; }
+  @keyframes feedIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+  .sb-actions { display:flex; gap:0.3rem; margin-top:auto; }
+  .btn { flex:1; padding:0.5rem; font-family:var(--font); font-size:0.7rem; font-weight:500; border:1px solid var(--border-l); border-radius:8px; background:transparent; color:var(--text-s); cursor:pointer; transition:all 0.2s; }
+  .btn:hover { border-color:var(--border); color:var(--text); background:var(--bg-panel); }
+  .btn.primary { background:var(--text); color:white; border-color:var(--text); }
+  .btn.primary:hover { background:#333; }
+
+  /* Column indicator in sidebar */
+  .col-indicator { display:flex; gap:0.3rem; margin-bottom:0.3rem; }
+  .col-dot { width:100%; height:4px; border-radius:2px; background:var(--border-l); transition:background 0.3s; }
+  .col-dot.active { background:var(--pink); }
+  .col-dot.done { background:var(--mint); }
+
+  /* ── PARTICIPANT ── */
+  #participant-view { display:none; min-height:100vh; }
+  .part-wrap { max-width:460px; margin:0 auto; padding:0 1.25rem 3rem; min-height:calc(100vh - 48px); display:flex; flex-direction:column; }
+  .part-hero { width:calc(100% + 2.5rem); margin:0 -1.25rem; height:160px; flex-shrink:0; }
+  .part-body { padding-top:1.5rem; flex:1; display:flex; flex-direction:column; }
+  .part-step { font-size:0.7rem; font-weight:500; color:var(--text-t); margin-bottom:0.4rem; }
+  .part-q { font-size:1.4rem; font-weight:700; letter-spacing:-0.03em; line-height:1.2; margin-bottom:0.4rem; }
+  .part-hint { font-size:0.82rem; color:var(--text-s); line-height:1.5; margin-bottom:1.5rem; }
+  .part-hint code { font-family:var(--font); font-size:0.8rem; background:var(--bg-panel); padding:0.1rem 0.4rem; border-radius:4px; color:var(--text); }
+  .ta-wrap { position:relative; margin-bottom:0.6rem; }
+  .ta-wrap textarea { width:100%; height:90px; background:var(--bg-card); border:1.5px solid var(--border); border-radius:10px; color:var(--text); font-family:var(--font); font-size:0.92rem; padding:0.8rem 1rem; resize:none; transition:border-color 0.2s, box-shadow 0.2s; }
+  .ta-wrap textarea:focus { outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(0,113,227,0.12); }
+  .ta-wrap textarea::placeholder { color:var(--text-t); }
+  .ta-count { position:absolute; bottom:0.5rem; right:0.7rem; font-size:0.65rem; color:var(--text-t); }
+  .send-btn { width:100%; padding:0.8rem; font-family:var(--font); font-size:0.92rem; font-weight:600; background:var(--text); border:none; border-radius:10px; color:white; cursor:pointer; transition:all 0.2s; }
+  .send-btn:hover { background:var(--blue); }
+  .send-btn:disabled { opacity:0.15; cursor:not-allowed; }
+  .anon-line { display:flex; align-items:center; justify-content:center; gap:0.35rem; margin-top:0.7rem; font-size:0.68rem; color:var(--text-t); }
+  .anon-line svg { width:12px; height:12px; flex-shrink:0; }
+  .done-view { display:none; flex-direction:column; align-items:center; justify-content:center; flex:1; text-align:center; gap:0.6rem; padding:2rem 0; }
+  .done-icon { width:48px; height:48px; border-radius:50%; background:var(--mint); display:flex; align-items:center; justify-content:center; animation:pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+  @keyframes pop { from{transform:scale(0)} to{transform:scale(1)} }
+  .done-view h3 { font-size:1.1rem; font-weight:600; }
+  .done-view p { font-size:0.82rem; color:var(--text-s); max-width:260px; line-height:1.4; }
+  .done-view .next-q-btn { margin-top:0.5rem; padding:0.6rem 1.5rem; font-family:var(--font); font-size:0.82rem; font-weight:600; background:var(--text); border:none; border-radius:10px; color:white; cursor:pointer; transition:all 0.2s; }
+  .done-view .next-q-btn:hover { background:var(--blue); }
+
+  @media(max-width:768px) {
+    .p-layout { grid-template-columns:1fr; }
+    .p-sidebar { border-left:none; border-top:1px solid var(--border-l); }
+    .p-content { padding:1rem; }
+    .p-q { font-size:1.3rem; }
+    .role-card { width:100%; max-width:300px; }
+    .brand-logo { font-size:2.2rem; }
+    .reflect-grid { grid-template-columns:1fr; }
+    .steps { gap:0.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ ROLE SELECT ═══ -->
+<div id="role-select">
+  <div class="role-hero geo-panel">
+    <svg viewBox="0 0 800 220" preserveAspectRatio="xMidYMid slice">
+      <rect width="800" height="220" fill="#1A1A1A"/>
+      <!-- Bauhaus composition -->
+      <rect x="30" y="30" width="70" height="160" rx="35" fill="#E8175D" class="gd"/>
+      <rect x="120" y="55" width="55" height="110" fill="#1A8A7D" class="gd2"/>
+      <circle cx="230" cy="110" r="50" fill="#D4940A" class="gd3"/>
+      <rect x="300" y="40" width="90" height="140" rx="8" fill="none" stroke="#6B3FA0" stroke-width="3" class="gd"/>
+      <rect x="420" y="30" width="70" height="160" fill="#C45D20" opacity="0.7" rx="4" class="gd2"/>
+      <circle cx="460" cy="110" r="30" fill="#30B880" class="gd3"/>
+      <rect x="520" y="50" width="24" height="120" rx="4" fill="#E8175D" opacity="0.4" class="gd"/>
+      <rect x="560" y="35" width="40" height="150" rx="6" fill="#D4940A" opacity="0.3" class="gd2"/>
+      <circle cx="640" cy="80" r="25" fill="#6B3FA0" opacity="0.5" class="gd3"/>
+      <rect x="680" y="60" width="90" height="100" rx="50" fill="#1A8A7D" opacity="0.4" class="gd"/>
+      <!-- Grid lines -->
+      <line x1="0" y1="110" x2="800" y2="110" stroke="#333" stroke-width="0.5"/>
+      <line x1="400" y1="0" x2="400" y2="220" stroke="#333" stroke-width="0.5"/>
+    </svg>
+  </div>
+  <div class="role-content">
+    <div class="brand-logo">bridge<span>-</span>poll</div>
+    <div class="brand-sub">by bridge-work.ai</div>
+    <div class="session-badge">Immunity to Change · Interactive Exercise</div>
+    <div class="role-cards">
+      <div class="role-card" onclick="enterPresenter()">
+        <div class="role-card-geo geo-panel">
+          <svg viewBox="0 0 260 160">
+            <rect width="260" height="160" fill="#1A1A1A"/>
+            <g transform="translate(130,80)">
+              <circle r="55" fill="none" stroke="#E8175D" stroke-width="2"/>
+              <circle r="40" fill="none" stroke="#D4940A" stroke-width="1.5"/>
+              <circle r="26" fill="none" stroke="#1A8A7D" stroke-width="1.5"/>
+              <circle r="12" fill="none" stroke="#6B3FA0" stroke-width="1"/>
+              <g>
+                <line x1="0" y1="-60" x2="0" y2="-50" stroke="#E8175D" stroke-width="1.5"/>
+                <line x1="60" y1="0" x2="50" y2="0" stroke="#D4940A" stroke-width="1.5"/>
+                <line x1="0" y1="60" x2="0" y2="50" stroke="#1A8A7D" stroke-width="1.5"/>
+                <line x1="-60" y1="0" x2="-50" y2="0" stroke="#6B3FA0" stroke-width="1.5"/>
+                <line x1="42" y1="-42" x2="35" y2="-35" stroke="#E8175D" stroke-width="1"/>
+                <line x1="42" y1="42" x2="35" y2="35" stroke="#D4940A" stroke-width="1"/>
+                <line x1="-42" y1="42" x2="-35" y2="35" stroke="#1A8A7D" stroke-width="1"/>
+                <line x1="-42" y1="-42" x2="-35" y2="-35" stroke="#6B3FA0" stroke-width="1"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <div class="role-card-body">
+          <div class="role-card-label">Present</div>
+          <div class="role-card-desc">Display word cloud and QR on the big screen</div>
+        </div>
+      </div>
+      <div class="role-card" onclick="enterParticipant()">
+        <div class="role-card-geo geo-panel">
+          <svg viewBox="0 0 260 160">
+            <rect width="260" height="160" fill="#1A1A1A"/>
+            <g transform="translate(130,80)">
+              <rect x="-50" y="-50" width="100" height="100" fill="none" stroke="#6B3FA0" stroke-width="2"/>
+              <rect x="-38" y="-38" width="76" height="76" fill="none" stroke="#C45D20" stroke-width="1.5" transform="rotate(8)"/>
+              <rect x="-27" y="-27" width="54" height="54" fill="none" stroke="#1A8A7D" stroke-width="1.5" transform="rotate(16)"/>
+              <rect x="-16" y="-16" width="32" height="32" fill="none" stroke="#E8175D" stroke-width="1.5" transform="rotate(24)"/>
+            </g>
+          </svg>
+        </div>
+        <div class="role-card-body">
+          <div class="role-card-label">Participate</div>
+          <div class="role-card-desc">Submit anonymous responses from any device</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PRESENTER ═══ -->
+<div id="presenter-view">
+  <div class="header">
+    <div class="h-logo">bridge<span>-</span>poll</div>
+    <div class="h-center">Immunity to Change</div>
+    <div class="h-right">
+      <div class="h-status"><div class="status-dot"></div> Demo</div>
+      <button class="h-back" onclick="resetView()">← Back</button>
+    </div>
+  </div>
+  <div class="p-layout">
+    <div class="p-main">
+      <!-- Geo bar at top of main area -->
+      <div class="p-geo-bar geo-panel">
+        <svg viewBox="0 0 900 120" preserveAspectRatio="xMidYMid slice">
+          <rect width="900" height="120" fill="#1A1A1A"/>
+          <rect x="20" y="15" width="40" height="90" rx="20" fill="#E8175D" opacity="0.8" class="gd"/>
+          <circle cx="100" cy="60" r="28" fill="#D4940A" opacity="0.6" class="gd2"/>
+          <rect x="150" y="25" width="50" height="70" fill="#1A8A7D" opacity="0.5" class="gd3"/>
+          <rect x="230" y="20" width="60" height="80" rx="6" fill="none" stroke="#6B3FA0" stroke-width="2" class="gd"/>
+          <circle cx="340" cy="55" r="22" fill="#30B880" opacity="0.5" class="gd2"/>
+          <rect x="390" y="30" width="30" height="60" rx="4" fill="#C45D20" opacity="0.4" class="gd3"/>
+          <rect x="450" y="15" width="45" height="90" rx="22" fill="#E8175D" opacity="0.3" class="gd"/>
+          <circle cx="540" cy="60" r="18" fill="#D4940A" opacity="0.4" class="gd2"/>
+          <rect x="590" y="25" width="35" height="70" fill="#6B3FA0" opacity="0.3" rx="4" class="gd3"/>
+          <rect x="660" y="20" width="50" height="80" rx="25" fill="#1A8A7D" opacity="0.3" class="gd"/>
+          <circle cx="760" cy="55" r="20" fill="#E8175D" opacity="0.2" class="gd2"/>
+          <rect x="810" y="30" width="60" height="60" rx="4" fill="#D4940A" opacity="0.2" class="gd3"/>
+        </svg>
+      </div>
+      <div class="p-content">
+        <div class="steps" id="steps-bar"></div>
+        <div id="p-stage"></div>
+      </div>
+    </div>
+    <div class="p-sidebar">
+      <div>
+        <div class="sb-label">Kegan's 4 columns</div>
+        <div class="col-indicator" id="col-indicator"></div>
+      </div>
+      <div>
+        <div class="sb-label">Scan to join</div>
+        <div class="qr-frame"><canvas id="qr-canvas"></canvas></div>
+      </div>
+      <div>
+        <div class="sb-label">Responses</div>
+        <div class="stat-pair">
+          <div class="stat-block"><div class="stat-num" id="s-count">0</div><div class="stat-txt">Total</div></div>
+          <div class="stat-block"><div class="stat-num" id="s-unique">0</div><div class="stat-txt">Unique</div></div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="sb-label">Live feed</div>
+        <div class="feed-list" id="feed"></div>
+      </div>
+      <div class="sb-actions">
+        <button class="btn" onclick="clearCurrent()">Clear</button>
+        <button class="btn" onclick="prevStep()">←</button>
+        <button class="btn" onclick="nextStep()">→</button>
+        <button class="btn primary" onclick="simulate()">Simulate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PARTICIPANT ═══ -->
+<div id="participant-view">
+  <div class="header">
+    <div class="h-logo">bridge<span>-</span>poll</div>
+    <div class="h-center"></div>
+    <div class="h-status"><div class="status-dot"></div> Connected</div>
+  </div>
+  <div class="part-wrap">
+    <div class="part-hero geo-panel">
+      <svg viewBox="0 0 460 160" preserveAspectRatio="xMidYMid slice">
+        <rect width="460" height="160" fill="#1A1A1A"/>
+        <rect x="18" y="18" width="48" height="124" rx="24" fill="#E8175D" class="gd"/>
+        <rect x="80" y="35" width="42" height="90" fill="#1A8A7D" class="gd2"/>
+        <circle cx="170" cy="80" r="40" fill="#D4940A" class="gd3"/>
+        <rect x="225" y="25" width="70" height="110" rx="6" fill="none" stroke="#6B3FA0" stroke-width="2.5" class="gd"/>
+        <rect x="315" y="18" width="55" height="124" fill="#C45D20" opacity="0.7" rx="4" class="gd2"/>
+        <circle cx="345" cy="80" r="25" fill="#30B880" class="gd3"/>
+        <rect x="390" y="40" width="18" height="80" rx="4" fill="#E8175D" opacity="0.4" class="gd"/>
+        <rect x="420" y="28" width="30" height="104" rx="4" fill="#D4940A" opacity="0.3" class="gd2"/>
+      </svg>
+    </div>
+    <div class="part-body">
+      <div id="part-input-area"></div>
+      <div class="done-view" id="done-view">
+        <div class="done-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h3>Submitted</h3>
+        <p id="done-msg">Your response is on the presenter's screen.</p>
+        <button class="next-q-btn" id="next-q-btn" onclick="partNextQ()" style="display:none">Next question →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// DATA
+// ══════════════════════════════════════
+const STEPS = [
+  {
+    id:'col1', type:'input', pill:'1 · Goal',
+    question:'Is there anything in your life you\'d like to change?',
+    sub:'Think of one thing you genuinely want to change — personal or professional. Your response is anonymous.',
+    partQ:'What would you like to change?',
+    partHint:'Share one thing you struggle to change — for example <code>eating chocolate after 9 PM</code> or <code>finishing side projects</code>.',
+    placeholder:'Type here…',
+    samples:['Exercise more','Less chocolate at night','Stop procrastinating','Better work-life balance','Finish my side projects','Less screen time','Meditate daily','Stop checking email at 11pm','Read more books','Be more patient','Wake up earlier','Delegate more','Say no more often','Take lunch breaks','Stop doom scrolling','More time with family','Learn a language','Stop working weekends','Go to bed on time','Speak up in meetings']
+  },
+  {
+    id:'pivot', type:'narrate', pill:'The pivot',
+    question:'Now imagine the change isn\'t yours.',
+    sub:'You just told me things you genuinely want to change — and still struggle with.',
+    script:[
+      '"Look at what came up — <em>exercise more</em>, <em>eat better</em>, <em>less screen time</em>. These are things you <em>want</em> to change, that <em>you</em> chose. And you still struggle."',
+      '"Now imagine your organization says: <em>from Monday, new platform</em>. You didn\'t choose it. You might not even see the problem it\'s solving. How much harder is that?"',
+      '"This is why change management matters. <em>The technology is the easy part. The behaviour is the hard part.</em>"'
+    ]
+  },
+  {
+    id:'col2', type:'input', pill:'2 · Doing instead',
+    question:'What do you do instead?',
+    sub:'When you don\'t follow through on your change goal — what do you actually do? The behaviours that work against you.',
+    partQ:'What do you do instead?',
+    partHint:'When you don\'t follow through — what do you actually do? For example <code>scroll my phone</code> or <code>snack instead</code>.',
+    placeholder:'What happens instead…',
+    samples:['Scroll my phone','Eat snacks','Watch Netflix','Stay at my desk','Hit snooze','Say yes anyway','Skip the gym','Work late instead','Open another tab','Make excuses','Complain about it','Avoid the conversation','Do the easy task first','Overthink it','Just keep doing the old way']
+  },
+  {
+    id:'col3', type:'input', pill:'3 · Protecting',
+    question:'What are you also protecting?',
+    sub:'Behind the "instead" behaviour is something you\'re committed to keeping safe. What competing commitment is holding you back?',
+    partQ:'What are you also protecting?',
+    partHint:'What hidden commitment blocks you? For example <code>not looking lazy</code> or <code>avoiding discomfort</code>.',
+    placeholder:'I\'m also committed to…',
+    samples:['Not looking lazy','Staying comfortable','Avoiding judgement','Being in control','Not failing publicly','Keeping people happy','Feeling competent','Avoiding conflict','Not being vulnerable','Looking professional','Being the reliable one','Not wasting time','Staying safe','Being seen as strong','Not disappointing anyone']
+  },
+  {
+    id:'col4', type:'input', pill:'4 · Assumptions',
+    question:'What must be true for this to hold?',
+    sub:'What deep assumption keeps your competing commitment locked in place? Often learned early, rarely examined.',
+    partQ:'What\'s the big assumption?',
+    partHint:'What belief keeps this pattern locked? For example <code>my worth equals my productivity</code> or <code>slowing down means failing</code>.',
+    placeholder:'I assume that…',
+    samples:['My worth = productivity','Slowing down = failing','Asking for help = weak','Rest is for lazy people','I must earn love','Being good = being busy','Vulnerability = weakness','Success requires sacrifice','I\'m not that kind of person','If I stop, it all falls apart','People only value output','Comfort = safety','Change = loss','Being liked = being safe','I need to prove myself']
+  },
+  {
+    id:'close', type:'reflect', pill:'Close',
+    question:'Start small. Test the assumption.',
+    sub:'Kegan & Lahey + James Clear: find one piece of contrary evidence, then build atomic habits.',
+    cards:[
+      {color:'var(--pink)', title:'Notice', text:'Observe when you engage in the "instead" behaviour. No judgement — just awareness.'},
+      {color:'var(--orange)', title:'Find evidence', text:'Look for someone who does it differently. A role model who breaks your assumption.'},
+      {color:'var(--teal)', title:'Micro experiment', text:'One tiny, safe test. If your assumption is "rest = lazy," rest for 15 minutes and see what happens.'},
+      {color:'var(--purple)', title:'Celebrate the small', text:'Even tiny progress builds new neural pathways. Consistency beats perfection — always.'}
+    ]
+  }
+];
+
+let currentStep = 0;
+const responses = {};
+STEPS.forEach(s => { if(s.type==='input') responses[s.id]=[]; });
+const colors = ['#E8175D','#D4940A','#1A8A7D','#6B3FA0','#C45D20','#30B880','#E85D5D','#8B6914'];
+let partStep = 0;
+const inputStepIndices = STEPS.map((s,i)=>s.type==='input'?i:null).filter(x=>x!==null);
+
+// ══════════════════════════════════════
+// WEBSOCKET CONNECTION
+// ══════════════════════════════════════
+// Set this to your Cloudflare Worker URL after deploying, e.g.:
+// const API_BASE = 'https://bridge-poll-worker.your-subdomain.workers.dev';
+// For local dev: const API_BASE = 'http://localhost:8787';
+// Set to null for demo/offline mode (no backend needed):
+const API_BASE = null;
+
+let ws = null;
+let sessionCode = null;
+
+async function createSession() {
+  if (!API_BASE) { sessionCode = 'DEMO'; return sessionCode; }
+  try {
+    const res = await fetch(`${API_BASE}/api/session`, { method: 'POST' });
+    const data = await res.json();
+    sessionCode = data.code;
+    return sessionCode;
+  } catch(e) {
+    console.warn('API unavailable, running in demo mode');
+    sessionCode = 'DEMO';
+    return sessionCode;
+  }
+}
+
+function connectWS(role) {
+  if (!API_BASE || sessionCode === 'DEMO') return;
+  const wsUrl = API_BASE.replace('http','ws') + `/api/session/${sessionCode}/ws?role=${role}`;
+  ws = new WebSocket(wsUrl);
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    switch(msg.type) {
+      case 'sync':
+        // Initial state sync
+        Object.entries(msg.responses||{}).forEach(([stepId, texts]) => {
+          responses[stepId] = texts;
+        });
+        if (role === 'participant') {
+          // Find which input step we should be on based on server step
+          const serverStep = msg.currentStep || 0;
+          const inputIdx = inputStepIndices.indexOf(serverStep);
+          if (inputIdx >= 0) partStep = inputIdx;
+        }
+        if (role === 'presenter') {
+          currentStep = msg.currentStep || 0;
+          renderStep(); buildStepsBar(); updateColIndicator();
+        }
+        updateStats();
+        break;
+      case 'new_response':
+        // Someone submitted a response
+        if (!responses[msg.stepId]) responses[msg.stepId] = [];
+        if (role === 'presenter') {
+          // Only add if we don't already have it (avoid double-adding our own simulate)
+          responses[msg.stepId].push(msg.text);
+          if (STEPS[currentStep].id === msg.stepId) {
+            renderWord(msg.stepId, msg.text, true);
+            const fi = document.createElement('div');
+            fi.className = 'feed-row';
+            fi.textContent = msg.text;
+            document.getElementById('feed').prepend(fi);
+          }
+          updateStats();
+        }
+        break;
+      case 'step_changed':
+        if (role === 'participant') {
+          const inputIdx = inputStepIndices.indexOf(msg.step);
+          if (inputIdx >= 0 && inputIdx !== partStep) {
+            partStep = inputIdx;
+            renderPartQ();
+          }
+        }
+        break;
+      case 'step_cleared':
+        responses[msg.stepId] = [];
+        if (role === 'presenter' && STEPS[currentStep].id === msg.stepId) {
+          renderStep();
+        }
+        break;
+      case 'participant_count':
+        // Could show in sidebar
+        break;
+    }
+  };
+
+  ws.onclose = () => { setTimeout(() => connectWS(role), 3000); };
+}
+
+function wsSend(data) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(data));
+  }
+}
+
+// ══════════════════════════════════════
+// NAV
+// ══════════════════════════════════════
+async function enterPresenter(){
+  await createSession();
+  document.getElementById('role-select').style.display='none';
+  document.getElementById('presenter-view').style.display='block';
+  connectWS('presenter');
+  buildStepsBar(); renderStep(); drawQR(); updateColIndicator();
+}
+function enterParticipant(){
+  // In production, participant would enter a code first
+  // For demo mode, connect directly
+  if (!API_BASE) sessionCode = 'DEMO';
+  document.getElementById('role-select').style.display='none';
+  document.getElementById('participant-view').style.display='block';
+  connectWS('participant');
+  renderPartQ();
+}
+function resetView(){
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  document.getElementById('role-select').style.display='flex';
+  document.getElementById('presenter-view').style.display='none';
+  document.getElementById('participant-view').style.display='none';
+  currentStep=0; partStep=0;
+}
+
+// ══════════════════════════════════════
+// PRESENTER STEPS
+// ══════════════════════════════════════
+function buildStepsBar(){
+  const bar=document.getElementById('steps-bar');
+  bar.innerHTML='';
+  STEPS.forEach((s,i)=>{
+    if(i>0){ const c=document.createElement('div'); c.className='step-conn'; bar.appendChild(c); }
+    const p=document.createElement('div');
+    p.className='step-pill'+(i===currentStep?' active':i<currentStep?' done':'');
+    p.textContent=s.pill;
+    p.onclick=()=>{currentStep=i; renderStep(); buildStepsBar(); updateColIndicator();};
+    bar.appendChild(p);
+  });
+}
+
+function renderStep(){
+  const s=STEPS[currentStep];
+  const stage=document.getElementById('p-stage');
+  if(s.type==='input'){
+    stage.innerHTML=`
+      <div class="p-q">${s.question}</div>
+      <div class="p-sub">${s.sub}</div>
+      <div class="cloud-box" id="cloud-${s.id}">
+        <div class="cloud-empty" id="empty-${s.id}">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#AEAEB2" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Waiting for responses…
+        </div>
+      </div>`;
+    // Re-render existing responses
+    const existing = responses[s.id]||[];
+    if(existing.length>0){
+      document.getElementById('empty-'+s.id).style.display='none';
+      existing.forEach(t=>renderWord(s.id,t,false));
+    }
+    updateStats();
+  } else if(s.type==='narrate'){
+    stage.innerHTML=`
+      <div class="p-q">${s.question}</div>
+      <div class="p-sub">${s.sub}</div>
+      <div class="pivot-box">
+        <div class="pivot-label">Facilitator script</div>
+        ${s.script.map(p=>'<p>'+p+'</p>').join('')}
+      </div>`;
+  } else if(s.type==='reflect'){
+    stage.innerHTML=`
+      <div class="p-q">${s.question}</div>
+      <div class="p-sub">${s.sub}</div>
+      <div class="reflect-grid">
+        ${s.cards.map(c=>`
+          <div class="reflect-card">
+            <div class="accent-bar" style="background:${c.color}"></div>
+            <h4>${c.title}</h4>
+            <p>${c.text}</p>
+          </div>`).join('')}
+      </div>`;
+  }
+}
+
+function updateColIndicator(){
+  const ci=document.getElementById('col-indicator');
+  const colSteps=['col1','col2','col3','col4'];
+  ci.innerHTML=colSteps.map((c,i)=>{
+    const stepIdx=STEPS.findIndex(s=>s.id===c);
+    const cls=stepIdx<currentStep?'done':stepIdx===currentStep?'active':'';
+    return `<div class="col-dot ${cls}"></div>`;
+  }).join('');
+}
+
+function nextStep(){ if(currentStep<STEPS.length-1){currentStep++; wsSend({type:'advance_step',step:currentStep}); renderStep(); buildStepsBar(); updateColIndicator();} }
+function prevStep(){ if(currentStep>0){currentStep--; wsSend({type:'advance_step',step:currentStep}); renderStep(); buildStepsBar(); updateColIndicator();} }
+
+function clearCurrent(){
+  const s=STEPS[currentStep];
+  if(s.type!=='input') return;
+  const box=document.getElementById('cloud-'+s.id);
+  if(!box) return;
+  box.querySelectorAll('.cloud-word').forEach(e=>e.remove());
+  const empty=document.getElementById('empty-'+s.id);
+  if(empty) empty.style.display='flex';
+  responses[s.id]=[];
+  wsSend({type:'clear_step',stepId:s.id});
+  document.getElementById('feed').innerHTML='';
+  updateStats();
+}
+
+// ══════════════════════════════════════
+// WORD CLOUD
+// ══════════════════════════════════════
+function addWord(stepId, text){
+  if(!responses[stepId]) responses[stepId]=[];
+  responses[stepId].push(text);
+  const s=STEPS.find(x=>x.id===stepId);
+  if(s && STEPS[currentStep].id===stepId){
+    renderWord(stepId, text, true);
+    // Feed
+    const fi=document.createElement('div');
+    fi.className='feed-row';
+    fi.textContent=text;
+    document.getElementById('feed').prepend(fi);
+  }
+  updateStats();
+}
+
+function renderWord(stepId, text, animate){
+  const box=document.getElementById('cloud-'+stepId);
+  if(!box) return;
+  const empty=document.getElementById('empty-'+stepId);
+  if(empty) empty.style.display='none';
+
+  const el=document.createElement('div');
+  el.className='cloud-word'+(animate?'':' visible');
+  el.textContent=text;
+  const arr=responses[stepId]||[];
+  const freq=arr.filter(r=>r.toLowerCase()===text.toLowerCase()).length;
+  const sz=Math.min(13+freq*5+Math.random()*12,36);
+  el.style.fontSize=sz+'px';
+  el.style.color=colors[Math.floor(Math.random()*colors.length)];
+  const r=box.getBoundingClientRect();
+  el.style.left=(10+Math.random()*Math.max(r.width-160,60))+'px';
+  el.style.top=(10+Math.random()*Math.max(r.height-36,60))+'px';
+  box.appendChild(el);
+  if(animate) requestAnimationFrame(()=>el.classList.add('visible'));
+}
+
+function updateStats(){
+  const s=STEPS[currentStep];
+  if(s.type!=='input'){document.getElementById('s-count').textContent='—';document.getElementById('s-unique').textContent='—';return;}
+  const arr=responses[s.id]||[];
+  document.getElementById('s-count').textContent=arr.length;
+  document.getElementById('s-unique').textContent=new Set(arr.map(r=>r.toLowerCase())).size;
+}
+
+function simulate(){
+  const s=STEPS[currentStep];
+  if(s.type!=='input') return;
+  const shuffled=[...s.samples].sort(()=>Math.random()-0.5);
+  const n=8+Math.floor(Math.random()*6);
+  shuffled.slice(0,n).forEach((t,i)=>{
+    setTimeout(()=>addWord(s.id,t), i*350+Math.random()*200);
+  });
+}
+
+// ══════════════════════════════════════
+// PARTICIPANT
+// ══════════════════════════════════════
+function renderPartQ(){
+  const idx=inputStepIndices[partStep];
+  if(idx===undefined) return;
+  const s=STEPS[idx];
+  const area=document.getElementById('part-input-area');
+  area.style.display='';
+  document.getElementById('done-view').style.display='none';
+  area.innerHTML=`
+    <div class="part-step">Question ${partStep+1} of ${inputStepIndices.length}</div>
+    <div class="part-q">${s.partQ}</div>
+    <div class="part-hint">${s.partHint}</div>
+    <div class="ta-wrap">
+      <textarea id="resp-input" placeholder="${s.placeholder}" maxlength="140" oninput="onType()"></textarea>
+      <div class="ta-count"><span id="cc">0</span>/140</div>
+    </div>
+    <button class="send-btn" id="send-btn" onclick="send()" disabled>Submit</button>
+    <div class="anon-line">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Anonymous · no sign-in required
+    </div>`;
+}
+
+function onType(){
+  const v=document.getElementById('resp-input').value;
+  document.getElementById('cc').textContent=v.length;
+  document.getElementById('send-btn').disabled=v.trim().length===0;
+}
+
+function send(){
+  const v=document.getElementById('resp-input').value.trim();
+  if(!v) return;
+  const idx=inputStepIndices[partStep];
+  const stepId = STEPS[idx].id;
+  // Send via WebSocket if connected, otherwise local add
+  wsSend({type:'response', stepId, text:v});
+  if (!API_BASE || sessionCode === 'DEMO') addWord(stepId, v);
+  document.getElementById('part-input-area').style.display='none';
+  const dv=document.getElementById('done-view');
+  dv.style.display='flex';
+  // Reset animation
+  dv.querySelector('.done-icon').style.animation='none';
+  requestAnimationFrame(()=>dv.querySelector('.done-icon').style.animation='');
+  const hasNext=partStep<inputStepIndices.length-1;
+  document.getElementById('done-msg').textContent=hasNext?'Response submitted. Ready for the next question?':'All done — thank you for participating.';
+  document.getElementById('next-q-btn').style.display=hasNext?'':'none';
+}
+
+function partNextQ(){
+  partStep++;
+  renderPartQ();
+}
+
+// ══════════════════════════════════════
+// QR
+// ══════════════════════════════════════
+function drawQR(){
+  const c=document.getElementById('qr-canvas');
+  const ctx=c.getContext('2d');
+  c.width=200;c.height=200;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,200,200);
+  ctx.fillStyle='#1A1A1A';
+  const s=8,g=25;
+  function finder(x,y){ctx.fillRect(x*s,y*s,7*s,7*s);ctx.fillStyle='#fff';ctx.fillRect((x+1)*s,(y+1)*s,5*s,5*s);ctx.fillStyle='#1A1A1A';ctx.fillRect((x+2)*s,(y+2)*s,3*s,3*s);}
+  finder(1,1);finder(g-8,1);finder(1,g-8);
+  let r=42;const rnd=()=>{r=(r*16807)%2147483647;return r/2147483647;};
+  for(let i=0;i<g;i++)for(let j=0;j<g;j++){if(rnd()>0.52){if(i<10&&j<10)continue;if(i>g-10&&j<10)continue;if(i<10&&j>g-10)continue;ctx.fillRect(i*s,j*s,s,s);}}
+  ctx.fillStyle='#E8175D';ctx.font='600 10px -apple-system,sans-serif';ctx.textAlign='center';
+  ctx.fillText('DEMO',100,96);ctx.fillText('MODE',100,109);
+}
+</script>
+</body>
+</html>
