@@ -149,6 +149,7 @@
     color:#666;
   }
   .status-ok { color:var(--mint); }
+  .status-bad { color:#F87171; }
   .status-err { color:#E85D5D; }
 
   /* Action bar below editor */
@@ -431,12 +432,12 @@
           <span class="editor-file">exercise.json</span>
         </div>
         <div class="editor-toolbar-right">
-          <button class="tb-btn">Format</button>
-          <button class="tb-btn">Copy</button>
-          <button class="tb-btn accent">Validate</button>
+          <button class="tb-btn" id="format-btn">Format</button>
+          <button class="tb-btn" id="copy-btn">Copy</button>
+          <button class="tb-btn accent" id="validate-btn">Validate</button>
         </div>
       </div>
-      <textarea class="editor-textarea" spellcheck="false" placeholder="Paste your exercise JSON here…">{
+      <textarea class="editor-textarea" id="json-editor" spellcheck="false" placeholder="Paste your exercise JSON here…">{
   "title": "Immunity to Change",
   "subtitle": "Change Management · Opening Exercise",
   "steps": [
@@ -502,15 +503,15 @@
   ]
 }</textarea>
       <div class="editor-status">
-        <span class="status-ok">✓ Valid JSON · 6 steps · 4 inputs</span>
-        <span>UTF-8 · 1.2 KB</span>
+        <span class="status-ok" id="editor-status">✓ Valid JSON · 6 steps · 4 inputs</span>
+        <span id="editor-meta">UTF-8 · 1.2 KB</span>
       </div>
     </div>
 
     <!-- Actions -->
     <div class="action-bar">
-      <button class="action-btn primary">Create session</button>
-      <button class="action-btn secondary">Save as template</button>
+      <button class="action-btn primary" id="create-session-btn">Create session</button>
+      <button class="action-btn secondary" id="save-template-btn">Save as template</button>
       <div class="action-spacer"></div>
       <span class="action-hint">Session code will appear in the sidebar →</span>
     </div>
@@ -520,68 +521,9 @@
   <div class="right-pane">
     <div class="preview-section">
       <div class="preview-label">Live preview</div>
-      <div class="preview-title">Immunity to Change</div>
-      <div class="preview-subtitle">Change Management · Opening Exercise</div>
-
-      <!-- Step 1 -->
-      <div class="preview-step">
-        <div class="step-num input">1</div>
-        <div class="step-content">
-          <div class="step-type">Input · word cloud</div>
-          <div class="step-q">What would you like to change?</div>
-          <div class="step-detail">One thing you genuinely want to change.</div>
-        </div>
-      </div>
-
-      <!-- Step 2 -->
-      <div class="preview-step">
-        <div class="step-num narrate">2</div>
-        <div class="step-content">
-          <div class="step-type">Narrate · facilitator only</div>
-          <div class="step-q">Now imagine the change isn't yours.</div>
-          <div class="step-detail">3 script lines</div>
-        </div>
-      </div>
-
-      <!-- Step 3 -->
-      <div class="preview-step">
-        <div class="step-num input">3</div>
-        <div class="step-content">
-          <div class="step-type">Input · word cloud</div>
-          <div class="step-q">What do you do instead?</div>
-          <div class="step-detail">The behaviours working against you.</div>
-        </div>
-      </div>
-
-      <!-- Step 4 -->
-      <div class="preview-step">
-        <div class="step-num input">4</div>
-        <div class="step-content">
-          <div class="step-type">Input · word cloud</div>
-          <div class="step-q">What are you also protecting?</div>
-          <div class="step-detail">The hidden competing commitment.</div>
-        </div>
-      </div>
-
-      <!-- Step 5 -->
-      <div class="preview-step">
-        <div class="step-num input">5</div>
-        <div class="step-content">
-          <div class="step-type">Input · word cloud</div>
-          <div class="step-q">What must be true for this to hold?</div>
-          <div class="step-detail">The big assumption — identity level.</div>
-        </div>
-      </div>
-
-      <!-- Step 6 -->
-      <div class="preview-step">
-        <div class="step-num reflect">6</div>
-        <div class="step-content">
-          <div class="step-type">Reflect · 4 cards</div>
-          <div class="step-q">Start small. Test the assumption.</div>
-          <div class="step-detail">Notice · Find evidence · Micro experiment · Celebrate</div>
-        </div>
-      </div>
+      <div class="preview-title" id="preview-title">Immunity to Change</div>
+      <div class="preview-subtitle" id="preview-subtitle">Change Management · Opening Exercise</div>
+      <div id="preview-steps"></div>
     </div>
 
     <!-- Sessions -->
@@ -618,6 +560,278 @@
   </div>
 
 </div>
+
+<script>
+const STORAGE_TEMPLATE_KEY = 'bridge-poll-templates';
+const STORAGE_SESSION_KEY = 'bridge-poll-sessions';
+const BUILTIN_TEMPLATE = {
+  name: 'Immunity to Change',
+  createdAt: 'builtin',
+  json: {
+    title: 'Immunity to Change',
+    subtitle: 'Change Management · Opening Exercise',
+    steps: [
+      {
+        type: 'input',
+        question: 'What would you like to change?',
+        subtitle: 'One thing you genuinely want to change.',
+        participant: {
+          question: 'What would you like to change?',
+          hint: 'e.g. eating chocolate after 9 PM',
+          placeholder: 'Type here…'
+        }
+      },
+      {
+        type: 'narrate',
+        question: "Now imagine the change isn't yours.",
+        script: [
+          "You chose these. You're motivated. Still hard.",
+          'Monday, new platform. Not your choice.',
+          'Technology is easy. Behaviour is hard.'
+        ]
+      },
+      {
+        type: 'input',
+        question: 'What do you do instead?',
+        subtitle: 'The behaviours working against you.',
+        participant: {
+          question: 'What do you do instead?',
+          hint: 'e.g. scroll phone, snack',
+          placeholder: 'What happens instead…'
+        }
+      },
+      {
+        type: 'input',
+        question: 'What are you also protecting?',
+        subtitle: 'The hidden competing commitment.',
+        participant: {
+          question: 'What are you also protecting?',
+          hint: 'e.g. not looking lazy, staying comfortable',
+          placeholder: "I'm also committed to…"
+        }
+      },
+      {
+        type: 'input',
+        question: 'What must be true for this to hold?',
+        subtitle: 'The big assumption — identity level.',
+        participant: {
+          question: "What's the big assumption?",
+          hint: 'e.g. my worth equals my productivity',
+          placeholder: 'I assume that…'
+        }
+      },
+      {
+        type: 'reflect',
+        question: 'Start small. Test the assumption.',
+        cards: [
+          { title: 'Notice', text: 'Observe without judgement.', color: 'pink' },
+          { title: 'Find evidence', text: 'Someone who breaks your assumption.', color: 'orange' },
+          { title: 'Micro experiment', text: 'One tiny, safe test.', color: 'teal' },
+          { title: 'Celebrate', text: 'Consistency beats perfection.', color: 'purple' }
+        ]
+      }
+    ]
+  }
+};
+
+const editor = document.getElementById('json-editor');
+const previewTitle = document.getElementById('preview-title');
+const previewSubtitle = document.getElementById('preview-subtitle');
+const previewSteps = document.getElementById('preview-steps');
+const statusEl = document.getElementById('editor-status');
+const metaEl = document.getElementById('editor-meta');
+const formatBtn = document.getElementById('format-btn');
+const copyBtn = document.getElementById('copy-btn');
+const validateBtn = document.getElementById('validate-btn');
+const createSessionBtn = document.getElementById('create-session-btn');
+const saveTemplateBtn = document.getElementById('save-template-btn');
+
+let lastParsed = null;
+let lastError = '';
+
+function getTemplates() {
+  try {
+    const raw = localStorage.getItem(STORAGE_TEMPLATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function setTemplates(templates) {
+  localStorage.setItem(STORAGE_TEMPLATE_KEY, JSON.stringify(templates));
+}
+
+function getSessions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function setSessions(sessions) {
+  localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(sessions));
+}
+
+function getBuiltinTemplate() {
+  return BUILTIN_TEMPLATE;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function countInputs(json) {
+  return (json.steps || []).filter((step) => step.type === 'input').length;
+}
+
+function describeStep(step) {
+  if (step.type === 'input') return 'Input · word cloud';
+  if (step.type === 'narrate') return 'Narrate · facilitator only';
+  if (step.type === 'reflect') return `Reflect · ${(step.cards || []).length} cards`;
+  return step.type;
+}
+
+function renderPreview(json) {
+  previewTitle.textContent = json.title || 'Untitled exercise';
+  previewSubtitle.textContent = json.subtitle || '';
+  previewSteps.innerHTML = (json.steps || []).map((step, index) => {
+    const detail = step.type === 'narrate'
+      ? `${(step.script || []).length} script lines`
+      : step.type === 'reflect'
+        ? (step.cards || []).map((card) => card.title).join(' · ')
+        : step.subtitle || step.participant?.question || '';
+    return `
+      <div class="preview-step">
+        <div class="step-num ${step.type}">${index + 1}</div>
+        <div class="step-content">
+          <div class="step-type">${escapeHtml(describeStep(step))}</div>
+          <div class="step-q">${escapeHtml(step.question || '')}</div>
+          <div class="step-detail">${escapeHtml(detail)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateSessionList() {
+  const sessionsSection = document.querySelector('.sessions-section');
+  const existingCards = sessionsSection.querySelectorAll('.session-card[data-dynamic="true"]');
+  existingCards.forEach((card) => card.remove());
+  const sessions = getSessions();
+  sessions.forEach((session) => {
+    const card = document.createElement('div');
+    card.className = 'session-card';
+    card.dataset.dynamic = 'true';
+    card.dataset.code = session.code;
+    card.innerHTML = `
+      <div class="session-code">${escapeHtml(session.code)}</div>
+      <div class="session-info">
+        <div class="session-name">${escapeHtml(session.title || 'Untitled exercise')}</div>
+        <div class="session-meta">${escapeHtml(new Date(session.createdAt).toLocaleString())} · ${session.responseCount || 0} responses</div>
+      </div>
+      <div class="session-status ${session.status || 'ended'}">${escapeHtml((session.status || 'ended').toUpperCase())}</div>`;
+    card.addEventListener('click', () => {
+      if ((session.status || 'ended') !== 'live') return;
+      window.open(`bridge-poll-v4-final.html?session=${encodeURIComponent(session.code)}&role=presenter`, '_blank');
+    });
+    sessionsSection.appendChild(card);
+  });
+}
+
+function setStatusFromError(message) {
+  statusEl.textContent = `✗ Invalid JSON: ${message}`;
+  statusEl.className = 'status-bad';
+}
+
+function setStatusFromJson(json) {
+  const stepCount = (json.steps || []).length;
+  const inputCount = countInputs(json);
+  statusEl.textContent = `✓ Valid JSON · ${stepCount} steps · ${inputCount} inputs`;
+  statusEl.className = 'status-ok';
+}
+
+function validateEditor(showAlert = false) {
+  try {
+    const parsed = JSON.parse(editor.value);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.steps)) {
+      throw new Error('Expected an object with a steps array');
+    }
+    lastParsed = parsed;
+    lastError = '';
+    setStatusFromJson(parsed);
+    renderPreview(parsed);
+    metaEl.textContent = `UTF-8 · ${editor.value.length.toLocaleString()} bytes`;
+    return true;
+  } catch (error) {
+    lastParsed = null;
+    lastError = error.message;
+    setStatusFromError(error.message);
+    if (showAlert) alert(`Invalid JSON: ${error.message}`);
+    return false;
+  }
+}
+
+function formatEditor() {
+  if (!validateEditor()) return;
+  editor.value = JSON.stringify(lastParsed, null, 2);
+  validateEditor();
+}
+
+function copyEditor() {
+  navigator.clipboard.writeText(editor.value);
+}
+
+function createSession() {
+  if (!validateEditor(true)) return;
+  const code = Math.random().toString(36).slice(2, 6).toUpperCase();
+  const session = {
+    code,
+    title: lastParsed.title || 'Untitled exercise',
+    createdAt: new Date().toISOString(),
+    responseCount: 0,
+    status: 'live'
+  };
+  const sessions = [session, ...getSessions().filter((item) => item.code !== code)];
+  setSessions(sessions.slice(0, 20));
+  updateSessionList();
+  window.open(`bridge-poll-v4-final.html?session=${encodeURIComponent(code)}&role=presenter`, '_blank');
+}
+
+function saveTemplate() {
+  if (!validateEditor(true)) return;
+  const name = prompt('Template name');
+  if (!name) return;
+  const templates = getTemplates().filter((template) => template.name !== name);
+  templates.unshift({ name, json: lastParsed, createdAt: new Date().toISOString() });
+  setTemplates(templates);
+}
+
+function loadInitialEditorValue() {
+  const templates = getTemplates();
+  const saved = templates.find((template) => template.name === getBuiltinTemplate().name) || getBuiltinTemplate();
+  editor.value = JSON.stringify(saved.json, null, 2);
+}
+
+editor.addEventListener('input', () => validateEditor(false));
+formatBtn.addEventListener('click', formatEditor);
+copyBtn.addEventListener('click', copyEditor);
+validateBtn.addEventListener('click', () => validateEditor(true));
+createSessionBtn.addEventListener('click', createSession);
+saveTemplateBtn.addEventListener('click', saveTemplate);
+
+loadInitialEditorValue();
+updateSessionList();
+validateEditor(false);
+</script>
 
 </body>
 </html>
