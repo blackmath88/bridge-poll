@@ -21,6 +21,7 @@ src/
   utils/           schema, storage, import/export, realtime helpers
   assets/          static app assets
 public/            static files served by Vite
+worker/            Cloudflare Worker + Durable Object backend
 index.html         Vite entry point
 vite.config.js
 package.json
@@ -70,10 +71,20 @@ Supported step types are `input`, `narrate`, and `reflect`.
 
 ## Cloudflare Worker integration
 
-By default the app runs locally with browser storage. To connect a Worker backend, set:
+By default the app runs locally with browser storage. The Worker backend lives in `worker/` and implements the realtime contract used by `src/utils/realtime.js`.
+
+Run the Worker locally:
 
 ```bash
-VITE_API_BASE=https://bridge-poll-worker.your-subdomain.workers.dev
+cd worker
+npm install
+npm run dev
+```
+
+To connect the frontend to a local or deployed Worker, set:
+
+```bash
+VITE_API_BASE=http://localhost:8787
 ```
 
 The realtime helper preserves the existing protocol shape:
@@ -82,6 +93,15 @@ The realtime helper preserves the existing protocol shape:
 - `/api/session/:code/ws?role=presenter`
 - `/api/session/:code/ws?role=participant`
 - WebSocket messages such as `state`, `response`, `advance_step`, and `clear_step`
+
+For deployment:
+
+```bash
+cd worker
+npm run deploy
+```
+
+Then set `VITE_API_BASE` in the frontend or Cloudflare Pages environment variables to the deployed Worker URL.
 
 ## License
 

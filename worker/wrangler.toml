@@ -1,0 +1,11 @@
+name = "bridge-poll-worker"
+main = "src/index.ts"
+compatibility_date = "2026-05-30"
+
+[[durable_objects.bindings]]
+name = "POLL_SESSIONS"
+class_name = "PollSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PollSession"]
