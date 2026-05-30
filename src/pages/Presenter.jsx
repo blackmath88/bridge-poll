@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import QRCode from '../components/QRCode.jsx';
 import ResultsCloud from '../components/ResultsCloud.jsx';
 import { loadSessions, saveSessions } from '../utils/storage.js';
-import { connectSession, sendMessage } from '../utils/realtime.js';
+import { API_BASE, connectSession, sendMessage } from '../utils/realtime.js';
 
 function updateStoredSession(code, updater) {
   const sessions = loadSessions();
@@ -13,10 +13,23 @@ function updateStoredSession(code, updater) {
   return next.find((session) => session.code === code);
 }
 
+function writeStateSnapshot(code, snapshot) {
+  return updateStoredSession(code, (item) => ({
+    ...item,
+    currentStep: snapshot.currentStep ?? item.currentStep,
+    responses: snapshot.responses || item.responses,
+    lastSyncedAt: new Date().toISOString(),
+  }));
+}
+
 export default function Presenter() {
   const { sessionId } = useParams();
   const [session, setSession] = useState(() => loadSessions().find((item) => item.code === sessionId));
   const [socket, setSocket] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState(API_BASE ? 'connecting' : 'local');
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
+  const shouldReconnectRef = useRef(true);
   const origin = window.location.origin;
 
   useEffect(() => {
@@ -30,25 +43,55 @@ export default function Presenter() {
   }, [sessionId]);
 
   useEffect(() => {
-    const ws = connectSession({
-      sessionCode: sessionId,
-      role: 'presenter',
-      onMessage: (message) => {
-        if (message.type === 'state') {
-          setSession((current) =>
-            current
-              ? {
-                  ...current,
-                  currentStep: message.currentStep ?? current.currentStep,
-                  responses: message.responses || current.responses,
-                }
-              : current,
-          );
-        }
-      },
-    });
-    setSocket(ws);
-    return () => ws?.close();
+    if (!API_BASE) {
+      setConnectionStatus('local');
+      return undefined;
+    }
+
+    shouldReconnectRef.current = true;
+
+    const scheduleReconnect = () => {
+      if (!shouldReconnectRef.current) return;
+      const attempt = reconnectAttemptRef.current + 1;
+      reconnectAttemptRef.current = attempt;
+      const delay = Math.min(30000, 800 * 2 ** Math.min(attempt - 1, 5));
+      setConnectionStatus('reconnecting');
+      reconnectTimerRef.current = window.setTimeout(connect, delay);
+    };
+
+    const connect = () => {
+      setConnectionStatus(reconnectAttemptRef.current ? 'reconnecting' : 'connecting');
+      const ws = connectSession({
+        sessionCode: sessionId,
+        role: 'presenter',
+        onOpen: () => {
+          reconnectAttemptRef.current = 0;
+          setConnectionStatus('connected');
+        },
+        onClose: scheduleReconnect,
+        onError: () => setConnectionStatus('reconnecting'),
+        onMessage: (message) => {
+          if (message.type === 'state') {
+            const next = writeStateSnapshot(sessionId, message);
+            if (next) setSession(next);
+          }
+        },
+      });
+      setSocket(ws);
+    };
+
+    connect();
+
+    return () => {
+      shouldReconnectRef.current = false;
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+      setSocket((current) => {
+        current?.close();
+        return null;
+      });
+    };
   }, [sessionId]);
 
   const poll = session?.poll;
@@ -99,7 +142,7 @@ export default function Presenter() {
 
   return (
     <>
-      <Header center={poll.title} status={`Session ${session.code}`} />
+      <Header center={poll.title} status={`Session ${session.code} · ${connectionStatus}`} />
       <main className="presenter-layout">
         <section className="presenter-main">
           <div className="step-strip">

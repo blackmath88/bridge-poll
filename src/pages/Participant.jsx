@@ -1,12 +1,28 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import { loadSessions, saveSessions } from '../utils/storage.js';
-import { connectSession, sendMessage } from '../utils/realtime.js';
+import { API_BASE, connectSession, sendMessage } from '../utils/realtime.js';
 
 function firstInputAtOrAfter(steps, startIndex) {
   const found = steps.findIndex((step, index) => index >= startIndex && step.type === 'input');
   return found === -1 ? steps.findIndex((step) => step.type === 'input') : found;
+}
+
+function writeStateSnapshot(code, snapshot) {
+  const sessions = loadSessions();
+  const nextSessions = sessions.map((item) =>
+    item.code === code
+      ? {
+          ...item,
+          currentStep: snapshot.currentStep ?? item.currentStep,
+          responses: snapshot.responses || item.responses,
+          lastSyncedAt: new Date().toISOString(),
+        }
+      : item,
+  );
+  saveSessions(nextSessions);
+  return nextSessions.find((item) => item.code === code);
 }
 
 export default function Participant() {
@@ -15,6 +31,10 @@ export default function Participant() {
   const [answer, setAnswer] = useState('');
   const [submittedStep, setSubmittedStep] = useState(null);
   const [socket, setSocket] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState(API_BASE ? 'connecting' : 'local');
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
+  const shouldReconnectRef = useRef(true);
 
   useEffect(() => {
     const sync = () => setSession(loadSessions().find((item) => item.code === sessionId));
@@ -27,25 +47,55 @@ export default function Participant() {
   }, [sessionId]);
 
   useEffect(() => {
-    const ws = connectSession({
-      sessionCode: sessionId,
-      role: 'participant',
-      onMessage: (message) => {
-        if (message.type === 'state') {
-          setSession((current) =>
-            current
-              ? {
-                  ...current,
-                  currentStep: message.currentStep ?? current.currentStep,
-                  responses: message.responses || current.responses,
-                }
-              : current,
-          );
-        }
-      },
-    });
-    setSocket(ws);
-    return () => ws?.close();
+    if (!API_BASE) {
+      setConnectionStatus('local');
+      return undefined;
+    }
+
+    shouldReconnectRef.current = true;
+
+    const scheduleReconnect = () => {
+      if (!shouldReconnectRef.current) return;
+      const attempt = reconnectAttemptRef.current + 1;
+      reconnectAttemptRef.current = attempt;
+      const delay = Math.min(30000, 800 * 2 ** Math.min(attempt - 1, 5));
+      setConnectionStatus('reconnecting');
+      reconnectTimerRef.current = window.setTimeout(connect, delay);
+    };
+
+    const connect = () => {
+      setConnectionStatus(reconnectAttemptRef.current ? 'reconnecting' : 'connecting');
+      const ws = connectSession({
+        sessionCode: sessionId,
+        role: 'participant',
+        onOpen: () => {
+          reconnectAttemptRef.current = 0;
+          setConnectionStatus('connected');
+        },
+        onClose: scheduleReconnect,
+        onError: () => setConnectionStatus('reconnecting'),
+        onMessage: (message) => {
+          if (message.type === 'state') {
+            const next = writeStateSnapshot(sessionId, message);
+            if (next) setSession(next);
+          }
+        },
+      });
+      setSocket(ws);
+    };
+
+    connect();
+
+    return () => {
+      shouldReconnectRef.current = false;
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+      setSocket((current) => {
+        current?.close();
+        return null;
+      });
+    };
   }, [sessionId]);
 
   const poll = session?.poll;
@@ -97,7 +147,7 @@ export default function Participant() {
 
   return (
     <>
-      <Header center={poll.title} status={`Session ${session.code}`} />
+      <Header center={poll.title} status={`Session ${session.code} · ${connectionStatus}`} />
       <main className="participant-shell">
         <section className="participant-card">
           {step ? (
