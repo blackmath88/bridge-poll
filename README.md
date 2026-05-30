@@ -7,7 +7,7 @@ The project is now a Vite + React single page app with a Control Center for mana
 ## What it does
 
 - Admin Control Center for poll creation, editing, duplication, deletion, JSON import, and JSON export.
-- Session launcher with four-character session codes, presenter links, participant links, and QR codes.
+- Session launcher with six-character session codes, presenter links, participant links, and QR codes.
 - Presenter view at `/present/:sessionId` with step controls, live-style results, stats, simulated responses, and clear controls.
 - Participant view at `/join/:sessionId` with a mobile-friendly response flow.
 - Local-first storage using `localStorage`, with optional Cloudflare Worker/WebSocket wiring through `VITE_API_BASE`.
