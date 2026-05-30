@@ -32,14 +32,25 @@ The legacy static prototypes are still present as reference files:
 - `bridge-poll-admin.html`
 - `bridge-poll-v4-final.html`
 
-## Quick start
+## Local development
 
 ```bash
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
 Open `http://127.0.0.1:5173` or the URL printed by Vite.
+
+Run the Worker locally in a second terminal:
+
+```bash
+cd worker && npm install && npm run dev
+```
+
+To connect the frontend to the local Worker, create `.env` in the repo root:
+
+```bash
+VITE_API_BASE=http://localhost:8787
+```
 
 ## Build
 
@@ -69,23 +80,9 @@ npm run build
 
 Supported step types are `input`, `narrate`, and `reflect`.
 
-## Cloudflare Worker integration
+## Cloudflare Worker
 
 By default the app runs locally with browser storage. The Worker backend lives in `worker/` and implements the realtime contract used by `src/utils/realtime.js`.
-
-Run the Worker locally:
-
-```bash
-cd worker
-npm install
-npm run dev
-```
-
-To connect the frontend to a local or deployed Worker, set:
-
-```bash
-VITE_API_BASE=http://localhost:8787
-```
 
 The realtime helper preserves the existing protocol shape:
 
@@ -94,14 +91,46 @@ The realtime helper preserves the existing protocol shape:
 - `/api/session/:code/ws?role=participant`
 - WebSocket messages such as `state`, `response`, `advance_step`, and `clear_step`
 
-For deployment:
+Deploy the Worker:
 
 ```bash
 cd worker
+npm install
+npx wrangler login
 npm run deploy
 ```
 
-Then set `VITE_API_BASE` in the frontend or Cloudflare Pages environment variables to the deployed Worker URL.
+After deploy, set the frontend environment variable to the deployed Worker URL:
+
+```bash
+VITE_API_BASE=https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev
+```
+
+For local development, put that value in `.env`. For Cloudflare Pages, set it as a Pages environment variable.
+
+## Cloudflare Pages
+
+This is a client-side routed SPA. The file `public/_redirects` must contain:
+
+```text
+/* /index.html 200
+```
+
+That redirect lets `/join/:sessionId` and `/present/:sessionId` work after refresh or direct navigation.
+
+Deploy the frontend to Cloudflare Pages:
+
+```bash
+npm install
+npm run build
+npx wrangler pages deploy dist --project-name bridge-poll
+```
+
+Cloudflare Pages settings:
+
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Environment variable: `VITE_API_BASE=https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev`
 
 ## License
 
