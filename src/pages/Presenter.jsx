@@ -5,6 +5,14 @@ import QRCode from '../components/QRCode.jsx';
 import ResultsCloud from '../components/ResultsCloud.jsx';
 import { loadSessions, saveSessions } from '../utils/storage.js';
 import { API_BASE, connectSession, sendMessage } from '../utils/realtime.js';
+import {
+  buildJoinUrl,
+  buildPresenterUrl,
+  copyToClipboard,
+  downloadJson,
+  exportSessionToCsv,
+  openInNewTab,
+} from '../utils/sessionTools.js';
 
 function updateStoredSession(code, updater) {
   const sessions = loadSessions();
@@ -30,7 +38,10 @@ export default function Presenter() {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef(null);
   const shouldReconnectRef = useRef(true);
-  const origin = window.location.origin;
+  const presenterRef = useRef(null);
+  const [showQr, setShowQr] = useState(() => sessionStorage.getItem('bridge-poll-show-qr') !== 'false');
+  const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     const sync = () => setSession(loadSessions().find((item) => item.code === sessionId));
@@ -41,6 +52,12 @@ export default function Presenter() {
       window.removeEventListener('storage', sync);
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    const updateFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', updateFullscreen);
+    return () => document.removeEventListener('fullscreenchange', updateFullscreen);
+  }, []);
 
   useEffect(() => {
     if (!API_BASE) {
@@ -140,10 +157,43 @@ export default function Presenter() {
     setSession(next);
   };
 
+  const showCopied = (message = 'Copied!') => {
+    setToast(message);
+    window.setTimeout(() => setToast(''), 1500);
+  };
+
+  const copy = async (value) => {
+    try {
+      await copyToClipboard(value);
+      showCopied();
+    } catch {
+      showCopied('Copy failed');
+    }
+  };
+
+  const toggleQr = () => {
+    setShowQr((current) => {
+      const next = !current;
+      sessionStorage.setItem('bridge-poll-show-qr', String(next));
+      return next;
+    });
+  };
+
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    await (presenterRef.current || document.documentElement).requestFullscreen();
+  };
+
+  const joinUrl = buildJoinUrl(session.code);
+  const presenterUrl = buildPresenterUrl(session.code);
+
   return (
     <>
       <Header center={poll.title} status={`Session ${session.code} · ${connectionStatus}`} />
-      <main className="presenter-layout">
+      <main className="presenter-layout" ref={presenterRef}>
         <section className="presenter-main">
           <div className="step-strip">
             {poll.steps.map((item, index) => (
@@ -178,7 +228,33 @@ export default function Presenter() {
         </section>
 
         <aside className="presenter-side">
-          <QRCode value={`${origin}/join/${session.code}`} label={`${session.code} | /join/${session.code}`} />
+          <div className="presenter-tools">
+            <div>
+              <div className="session-code">{session.code}</div>
+              <p>{showQr ? 'Participants can scan or use the join link.' : 'QR hidden. Session code remains visible.'}</p>
+            </div>
+            {toast ? <span className="toast-pill">{toast}</span> : null}
+            <div className="side-actions">
+              <button onClick={() => copy(joinUrl)}>Copy Join Link</button>
+              <button onClick={() => copy(presenterUrl)}>Copy Presenter Link</button>
+              <button onClick={() => openInNewTab(joinUrl)}>Open Join</button>
+              <button onClick={() => openInNewTab(presenterUrl)}>Open Presenter</button>
+              <button onClick={toggleFullscreen}>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</button>
+              <button onClick={toggleQr}>{showQr ? 'Hide QR' : 'Show QR'}</button>
+              <button onClick={() => downloadJson(`bridge-poll-session-${session.code}.json`, session)}>
+                Export JSON
+              </button>
+              <button onClick={() => exportSessionToCsv(session)}>Export CSV</button>
+            </div>
+          </div>
+          {showQr ? (
+            <QRCode
+              value={joinUrl}
+              label={`${session.code} | /join/${session.code}`}
+              canDownload
+              filename={`${session.code}-join-qr.png`}
+            />
+          ) : null}
           <div className="stat-grid">
             <div>
               <strong>{responses.length}</strong>

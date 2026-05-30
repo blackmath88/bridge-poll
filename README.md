@@ -32,7 +32,7 @@ The legacy static prototypes are still present as reference files:
 - `bridge-poll-admin.html`
 - `bridge-poll-v4-final.html`
 
-## Local development
+## Run locally
 
 ```bash
 npm install && npm run dev

@@ -443,6 +443,22 @@ textarea {
   padding: 1rem;
 }
 
+.presenter-tools {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf8;
+  padding: 0.85rem;
+}
+
+.presenter-tools p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .step-strip {
   display: flex;
   flex-wrap: wrap;
@@ -592,6 +608,10 @@ textarea {
   grid-template-columns: 1fr 1fr;
   gap: 0.45rem;
   margin-top: auto;
+}
+
+.presenter-tools .side-actions {
+  margin-top: 0;
 }
 
 .participant-shell,

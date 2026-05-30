@@ -1,32 +1,13 @@
 import { useMemo, useState } from 'react';
 import QRCode from './QRCode.jsx';
-import { downloadJson } from '../utils/importExport.js';
-
-function escapeCsv(value) {
-  const text = String(value ?? '');
-  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function exportSessionCsv(session) {
-  const steps = session.poll?.steps || [];
-  const rows = [['stepId', 'stepPrompt', 'response']];
-
-  for (const step of steps) {
-    const responses = session.responses?.[step.id] || [];
-    for (const response of responses) {
-      rows.push([step.id, step.prompt, response]);
-    }
-  }
-
-  const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `${session.code}-responses.csv`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
+import {
+  buildJoinUrl,
+  buildPresenterUrl,
+  copyToClipboard,
+  downloadJson,
+  exportSessionToCsv,
+  openInNewTab,
+} from '../utils/sessionTools.js';
 
 export default function SessionManager({
   sessions,
@@ -36,9 +17,8 @@ export default function SessionManager({
   onDuplicateSession,
 }) {
   const [toast, setToast] = useState('');
-  const origin = window.location.origin;
-  const joinUrl = selectedSession ? `${origin}/join/${selectedSession.code}` : '';
-  const presenterUrl = selectedSession ? `${origin}/present/${selectedSession.code}` : '';
+  const joinUrl = selectedSession ? buildJoinUrl(selectedSession.code) : '';
+  const presenterUrl = selectedSession ? buildPresenterUrl(selectedSession.code) : '';
   const sortedSessions = useMemo(
     () =>
       [...sessions].sort((a, b) => {
@@ -56,15 +36,11 @@ export default function SessionManager({
 
   const copy = async (value) => {
     try {
-      await navigator.clipboard.writeText(value);
+      await copyToClipboard(value);
       showCopied();
     } catch {
       showCopied('Copy failed');
     }
-  };
-
-  const openUrl = (value) => {
-    window.open(value, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -86,14 +62,14 @@ export default function SessionManager({
             <div className="inline-actions">
               <button onClick={() => copy(joinUrl)}>Copy Join Link</button>
               <button onClick={() => copy(presenterUrl)}>Copy Presenter Link</button>
-              <button onClick={() => openUrl(presenterUrl)}>Open Presenter</button>
-              <button onClick={() => openUrl(joinUrl)}>Open Join</button>
+              <button onClick={() => openInNewTab(presenterUrl)}>Open Presenter</button>
+              <button onClick={() => openInNewTab(joinUrl)}>Open Join</button>
               <button onClick={() => onEndSession?.(selectedSession)}>End session</button>
               <button onClick={() => onDuplicateSession?.(selectedSession)}>Duplicate session</button>
-              <button onClick={() => downloadJson(`${selectedSession.code}-session.json`, selectedSession)}>
+              <button onClick={() => downloadJson(`bridge-poll-session-${selectedSession.code}.json`, selectedSession)}>
                 Export JSON
               </button>
-              <button onClick={() => exportSessionCsv(selectedSession)}>Export CSV</button>
+              <button onClick={() => exportSessionToCsv(selectedSession)}>Export CSV</button>
             </div>
           </div>
           <QRCode
@@ -116,7 +92,7 @@ export default function SessionManager({
             <span>{session.pollTitle}</span>
             <em>{session.status}</em>
             <div className="session-row-actions" onClick={(event) => event.stopPropagation()}>
-              <button onClick={() => openUrl(`${origin}/present/${session.code}`)}>Present</button>
+              <button onClick={() => openInNewTab(buildPresenterUrl(session.code))}>Present</button>
               <button onClick={() => onDuplicateSession?.(session)}>Duplicate</button>
               <button onClick={() => onEndSession?.(session)} disabled={session.status === 'ended'}>
                 End
