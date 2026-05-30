@@ -135,7 +135,7 @@ export default function Presenter() {
         </section>
 
         <aside className="presenter-side">
-          <QRCode value={`${origin}/join/${session.code}`} label={`${origin}/join/${session.code}`} />
+          <QRCode value={`${origin}/join/${session.code}`} label={`${session.code} | /join/${session.code}`} />
           <div className="stat-grid">
             <div>
               <strong>{responses.length}</strong>

@@ -106,7 +106,8 @@ a {
 }
 
 .status-pill,
-.state {
+.state,
+.toast-pill {
   border-radius: 999px;
   background: #efede9;
   color: var(--muted);
@@ -114,6 +115,12 @@ a {
   font-weight: 700;
   padding: 0.25rem 0.55rem;
   text-transform: uppercase;
+}
+
+.toast-pill {
+  background: #e9f7f2;
+  color: #15745d;
+  white-space: nowrap;
 }
 
 .state.ready {
@@ -362,6 +369,11 @@ textarea {
   text-align: center;
 }
 
+.qr-download {
+  width: 100%;
+  font-size: 0.78rem;
+}
+
 .session-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -370,6 +382,12 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.65rem;
+  cursor: pointer;
+}
+
+.session-row.active {
+  border-color: var(--ink);
+  box-shadow: inset 3px 0 0 var(--pink);
 }
 
 .session-row strong {
@@ -382,6 +400,19 @@ textarea {
   color: var(--muted);
   font-size: 0.78rem;
   font-style: normal;
+}
+
+.session-row-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.session-row-actions button {
+  font-size: 0.74rem;
+  min-height: 30px;
+  padding: 0.35rem 0.55rem;
 }
 
 .compact-panel {

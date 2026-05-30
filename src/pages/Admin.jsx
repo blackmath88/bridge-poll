@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header.jsx';
 import ImportExport from '../components/ImportExport.jsx';
 import PollEditor from '../components/PollEditor.jsx';
@@ -10,7 +10,7 @@ import { createRemoteSession } from '../utils/realtime.js';
 
 export default function Admin() {
   const [polls, setPolls] = useState(() => loadPolls());
-  const [sessions, setSessions] = useState(() => loadSessions());
+  const [sessions, setSessions] = useState(() => sortSessions(loadSessions()));
   const [selectedPollId, setSelectedPollId] = useState(() => loadPolls()[0]?.id);
   const [selectedSession, setSelectedSession] = useState(null);
 
@@ -18,6 +18,20 @@ export default function Admin() {
     () => polls.find((poll) => poll.id === selectedPollId) || polls[0],
     [polls, selectedPollId],
   );
+
+  useEffect(() => {
+    const refreshSessions = () => {
+      const nextSessions = sortSessions(loadSessions());
+      setSessions(nextSessions);
+      setSelectedSession((current) => {
+        if (!current) return current;
+        return nextSessions.find((session) => session.id === current.id) || current;
+      });
+    };
+
+    window.addEventListener('storage', refreshSessions);
+    return () => window.removeEventListener('storage', refreshSessions);
+  }, []);
 
   const persistPolls = (nextPolls) => {
     setPolls(nextPolls);
@@ -65,6 +79,21 @@ export default function Admin() {
     setSelectedPollId(incoming[0]?.id);
   };
 
+  function sortSessions(nextSessions) {
+    return [...nextSessions].sort((a, b) => {
+      const aTime = new Date(a.createdAt || 0).getTime();
+      const bTime = new Date(b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+  }
+
+  const persistSessions = (nextSessions) => {
+    const sorted = sortSessions(nextSessions);
+    saveSessions(sorted);
+    setSessions(sorted);
+    return sorted;
+  };
+
   const startSession = async (poll) => {
     let remoteCode = null;
     try {
@@ -86,8 +115,26 @@ export default function Admin() {
       createdAt: new Date().toISOString(),
     };
     const nextSessions = upsertSession(session);
-    setSessions(nextSessions);
+    persistSessions(nextSessions);
     setSelectedSession(session);
+  };
+
+  const endSession = (session) => {
+    const ended = {
+      ...session,
+      status: 'ended',
+      endedAt: new Date().toISOString(),
+    };
+    persistSessions(sessions.map((item) => (item.id === session.id ? ended : item)));
+    if (selectedSession?.id === session.id) {
+      setSelectedSession(ended);
+    }
+  };
+
+  const duplicateSession = (session) => {
+    if (session?.poll) {
+      startSession(session.poll);
+    }
   };
 
   const clearSessions = () => {
@@ -114,7 +161,13 @@ export default function Admin() {
         </div>
         <PollEditor poll={selectedPoll} onChange={updatePoll} />
         <div className="admin-right">
-          <SessionManager sessions={sessions} selectedSession={selectedSession} />
+          <SessionManager
+            sessions={sessions}
+            selectedSession={selectedSession}
+            onSelectSession={setSelectedSession}
+            onEndSession={endSession}
+            onDuplicateSession={duplicateSession}
+          />
           <section className="panel compact-panel">
             <div className="panel-head">
               <div>
