@@ -35,13 +35,13 @@ export default function Participant() {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef(null);
   const shouldReconnectRef = useRef(true);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     const sync = () => setSession(loadSessions().find((item) => item.code === sessionId));
-    const interval = window.setInterval(sync, 900);
+    sync();
     window.addEventListener('storage', sync);
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener('storage', sync);
     };
   }, [sessionId]);
@@ -112,6 +112,12 @@ export default function Participant() {
     }
   }, [step?.id, submittedStep]);
 
+  useEffect(() => {
+    if (step?.id && !isWaiting) {
+      textareaRef.current?.focus();
+    }
+  }, [isWaiting, step?.id]);
+
   if (!session || !poll) {
     return (
       <>
@@ -165,10 +171,17 @@ export default function Participant() {
               ) : (
                 <>
                   <textarea
+                    ref={textareaRef}
                     value={answer}
                     maxLength={180}
                     placeholder={step.placeholder || 'Type here...'}
                     onChange={(event) => setAnswer(event.target.value)}
+                    onKeyDown={(event) => {
+                      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                        event.preventDefault();
+                        submit();
+                      }
+                    }}
                   />
                   <div className="participant-actions">
                     <span>{answer.length}/180</span>

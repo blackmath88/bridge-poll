@@ -52,6 +52,8 @@ To connect the frontend to the local Worker, create `.env` in the repo root:
 VITE_API_BASE=http://localhost:8787
 ```
 
+When the Worker is enabled, presenter authorization is handled automatically. The session launcher stores the Worker-issued presenter token locally and the Presenter view includes it when connecting to the realtime WebSocket.
+
 ## Build
 
 ```bash
@@ -90,6 +92,8 @@ The realtime helper preserves the existing protocol shape:
 - `/api/session/:code/ws?role=presenter`
 - `/api/session/:code/ws?role=participant`
 - WebSocket messages such as `state`, `response`, `advance_step`, and `clear_step`
+
+`POST /api/session` returns a six-character session code plus a presenter token. Participants stay anonymous and do not need a token. Presenter-only messages such as `advance_step` and `clear_step` are rejected by the Worker unless the presenter token is valid.
 
 Deploy the Worker:
 

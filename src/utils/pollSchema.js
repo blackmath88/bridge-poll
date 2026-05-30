@@ -4,7 +4,7 @@ export const SESSION_STORAGE_KEY = 'bridge-poll-sessions';
 export const createId = (prefix = 'id') =>
   `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`;
 
-export const createSessionCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
+export const createSessionCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
 export const defaultPoll = {
   id: 'immunity-to-change',

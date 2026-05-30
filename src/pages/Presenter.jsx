@@ -45,10 +45,9 @@ export default function Presenter() {
 
   useEffect(() => {
     const sync = () => setSession(loadSessions().find((item) => item.code === sessionId));
-    const interval = window.setInterval(sync, 900);
+    sync();
     window.addEventListener('storage', sync);
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener('storage', sync);
     };
   }, [sessionId]);
@@ -81,6 +80,7 @@ export default function Presenter() {
       const ws = connectSession({
         sessionCode: sessionId,
         role: 'presenter',
+        token: session?.presenterToken,
         onOpen: () => {
           reconnectAttemptRef.current = 0;
           setConnectionStatus('connected');
@@ -109,7 +109,7 @@ export default function Presenter() {
         return null;
       });
     };
-  }, [sessionId]);
+  }, [session?.presenterToken, sessionId]);
 
   const poll = session?.poll;
   const step = poll?.steps[session.currentStep || 0];

@@ -5,8 +5,9 @@ Cloudflare Worker + Durable Object backend for bridge-poll realtime sessions.
 ## Endpoints
 
 - `GET /` health check
-- `POST /api/session` creates a session and returns `{ "code": "ABC123" }`
-- `GET /api/session/:code/ws?role=presenter|participant` upgrades to WebSocket
+- `POST /api/session` creates a session and returns `{ "code": "ABC123", "presenterToken": "..." }`
+- `GET /api/session/:code/ws?role=presenter&token=...` upgrades an authorized presenter WebSocket
+- `GET /api/session/:code/ws?role=participant` upgrades an anonymous participant WebSocket
 
 ## WebSocket messages
 
@@ -17,6 +18,8 @@ Clients may send:
 { "type": "advance_step", "step": 2 }
 { "type": "clear_step", "stepId": "col1" }
 ```
+
+Participants may send `response` without a token. `advance_step` and `clear_step` require a presenter WebSocket connected with the correct session token; unauthorized attempts receive an error and are ignored.
 
 The Worker sends the full session snapshot on connect and after each change:
 

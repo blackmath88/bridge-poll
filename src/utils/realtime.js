@@ -7,9 +7,11 @@ export async function createRemoteSession() {
   return response.json();
 }
 
-export function connectSession({ sessionCode, role, onMessage, onOpen, onClose, onError }) {
+export function connectSession({ sessionCode, role, token, onMessage, onOpen, onClose, onError }) {
   if (!API_BASE || !sessionCode) return null;
-  const wsUrl = `${API_BASE.replace(/^http/, 'ws')}/api/session/${sessionCode}/ws?role=${role}`;
+  const params = new URLSearchParams({ role });
+  if (token) params.set('token', token);
+  const wsUrl = `${API_BASE.replace(/^http/, 'ws')}/api/session/${sessionCode}/ws?${params.toString()}`;
   const socket = new WebSocket(wsUrl);
   socket.onmessage = (event) => onMessage(JSON.parse(event.data));
   socket.onopen = onOpen || null;

@@ -5,6 +5,7 @@ import PollEditor from '../components/PollEditor.jsx';
 import PollList from '../components/PollList.jsx';
 import SessionManager from '../components/SessionManager.jsx';
 import { createId, createSessionCode, defaultPoll, normalizePoll } from '../utils/pollSchema.js';
+import { pollTemplates } from '../utils/pollTemplates.js';
 import { loadPolls, loadSessions, savePolls, saveSessions, upsertSession } from '../utils/storage.js';
 import { createRemoteSession } from '../utils/realtime.js';
 
@@ -55,6 +56,17 @@ export default function Admin() {
     setSelectedPollId(poll.id);
   };
 
+  const addTemplate = (template) => {
+    const poll = normalizePoll({
+      ...template.poll,
+      id: createId('poll'),
+      title: template.poll.title || template.name,
+      createdAt: new Date().toISOString(),
+    });
+    persistPolls([poll, ...polls]);
+    setSelectedPollId(poll.id);
+  };
+
   const duplicatePoll = (poll) => {
     const copy = normalizePoll({
       ...poll,
@@ -96,11 +108,14 @@ export default function Admin() {
 
   const startSession = async (poll) => {
     let remoteCode = null;
+    let presenterToken = null;
     try {
       const remote = await createRemoteSession();
       remoteCode = remote?.code;
+      presenterToken = remote?.presenterToken || null;
     } catch {
       remoteCode = null;
+      presenterToken = null;
     }
 
     const session = {
@@ -109,6 +124,7 @@ export default function Admin() {
       pollId: poll.id,
       pollTitle: poll.title,
       poll,
+      presenterToken,
       status: 'live',
       currentStep: 0,
       responses: {},
@@ -158,6 +174,25 @@ export default function Admin() {
             onStart={startSession}
           />
           <ImportExport polls={polls} onImport={importPolls} />
+          <section className="panel templates-panel">
+            <div className="panel-head">
+              <div>
+                <h2>Templates</h2>
+                <p>Add a ready-made poll to your list.</p>
+              </div>
+            </div>
+            <div className="template-list">
+              {pollTemplates.map((template) => (
+                <article className="template-row" key={template.name}>
+                  <div>
+                    <h3>{template.name}</h3>
+                    <p>{template.description}</p>
+                  </div>
+                  <button onClick={() => addTemplate(template)}>Add template</button>
+                </article>
+              ))}
+            </div>
+          </section>
         </div>
         <PollEditor poll={selectedPoll} onChange={updatePoll} />
         <div className="admin-right">
