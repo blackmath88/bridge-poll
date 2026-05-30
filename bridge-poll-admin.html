@@ -378,6 +378,9 @@
     color:white;
     border-color:var(--text);
   }
+  .template-chip.danger {
+    border-style:dashed;
+  }
 
   /* ── RESPONSIVE ── */
   @media(max-width:900px) {
@@ -415,12 +418,7 @@
     </div>
 
     <!-- Template chips -->
-    <div class="templates-bar" style="padding:0">
-      <div class="template-chip active">Immunity to Change</div>
-      <div class="template-chip">Quick Poll</div>
-      <div class="template-chip">Retrospective</div>
-      <div class="template-chip">+ New from JSON</div>
-    </div>
+    <div class="templates-bar" id="templates-bar" style="padding:0"></div>
 
     <!-- Code editor -->
     <div class="editor-box">
@@ -645,9 +643,11 @@ const copyBtn = document.getElementById('copy-btn');
 const validateBtn = document.getElementById('validate-btn');
 const createSessionBtn = document.getElementById('create-session-btn');
 const saveTemplateBtn = document.getElementById('save-template-btn');
+const templatesBar = document.getElementById('templates-bar');
 
 let lastParsed = null;
 let lastError = '';
+let activeTemplateName = 'Immunity to Change';
 
 function getTemplates() {
   try {
@@ -679,6 +679,86 @@ function setSessions(sessions) {
 
 function getBuiltinTemplate() {
   return BUILTIN_TEMPLATE;
+}
+
+function getBuiltinTemplates() {
+  return [
+    getBuiltinTemplate(),
+    {
+      name: 'Quick Poll',
+      createdAt: 'builtin',
+      json: {
+        title: 'Quick Poll',
+        subtitle: 'Fast pulse check',
+        steps: [
+          {
+            type: 'input',
+            question: 'What is your biggest priority right now?',
+            subtitle: 'Short, focused and anonymous.',
+            participant: {
+              question: 'What is your biggest priority right now?',
+              hint: 'e.g. finish rollout, resolve blockers',
+              placeholder: 'Type your answer…'
+            }
+          },
+          {
+            type: 'reflect',
+            question: 'Read the room',
+            subtitle: 'Summarize what the group is saying.',
+            cards: [
+              { title: 'Theme', text: 'Common patterns in the answers', color: 'teal' },
+              { title: 'Risk', text: 'What could slow the group down', color: 'orange' },
+              { title: 'Next', text: 'One concrete action', color: 'purple' }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      name: 'Retrospective',
+      createdAt: 'builtin',
+      json: {
+        title: 'Retrospective',
+        subtitle: 'What went well, what to improve',
+        steps: [
+          {
+            type: 'input',
+            question: 'What went well?',
+            subtitle: 'Celebrate one thing from the last cycle.',
+            participant: {
+              question: 'What went well?',
+              hint: 'e.g. better handoffs, quick decisions',
+              placeholder: 'Add a win…'
+            }
+          },
+          {
+            type: 'input',
+            question: 'What should we improve next time?',
+            subtitle: 'Name one friction point.',
+            participant: {
+              question: 'What should we improve next time?',
+              hint: 'e.g. clearer ownership, fewer meetings',
+              placeholder: 'Add one improvement…'
+            }
+          },
+          {
+            type: 'reflect',
+            question: 'Choose one experiment',
+            subtitle: 'Turn feedback into action.',
+            cards: [
+              { title: 'Stop', text: 'Remove a recurring blocker', color: 'pink' },
+              { title: 'Start', text: 'Try a new working habit', color: 'teal' },
+              { title: 'Continue', text: 'Keep what is working', color: 'orange' }
+            ]
+          }
+        ]
+      }
+    }
+  ];
+}
+
+function getAllTemplates() {
+  return [...getBuiltinTemplates(), ...getTemplates()];
 }
 
 function escapeHtml(value) {
@@ -720,6 +800,61 @@ function renderPreview(json) {
         </div>
       </div>`;
   }).join('');
+}
+
+function setActiveTemplate(name) {
+  activeTemplateName = name;
+  renderTemplateChips();
+}
+
+function loadTemplateJson(template) {
+  editor.value = JSON.stringify(template.json, null, 2);
+  setActiveTemplate(template.name);
+  validateEditor(false);
+}
+
+function clearEditorForJson() {
+  editor.value = '{\n}\n';
+  setActiveTemplate('+ New from JSON');
+  validateEditor(false);
+}
+
+function deleteTemplate(name) {
+  const templates = getTemplates();
+  const updated = templates.filter((template) => template.name !== name);
+  if (updated.length === templates.length) return;
+  setTemplates(updated);
+  if (activeTemplateName === name) {
+    setActiveTemplate('Immunity to Change');
+  }
+  renderTemplateChips();
+}
+
+function renderTemplateChips() {
+  const templates = getAllTemplates();
+  templatesBar.innerHTML = '';
+
+  templates.forEach((template) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = `template-chip${template.name === activeTemplateName ? ' active' : ''}`;
+    chip.textContent = template.name;
+    chip.addEventListener('click', () => loadTemplateJson(template));
+    if (template.createdAt !== 'builtin') {
+      chip.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        if (confirm(`Delete template \"${template.name}\"?`)) deleteTemplate(template.name);
+      });
+    }
+    templatesBar.appendChild(chip);
+  });
+
+  const newChip = document.createElement('button');
+  newChip.type = 'button';
+  newChip.className = `template-chip danger${activeTemplateName === '+ New from JSON' ? ' active' : ''}`;
+  newChip.textContent = '+ New from JSON';
+  newChip.addEventListener('click', clearEditorForJson);
+  templatesBar.appendChild(newChip);
 }
 
 function updateSessionList() {
@@ -813,6 +948,8 @@ function saveTemplate() {
   const templates = getTemplates().filter((template) => template.name !== name);
   templates.unshift({ name, json: lastParsed, createdAt: new Date().toISOString() });
   setTemplates(templates);
+  setActiveTemplate(name);
+  renderTemplateChips();
 }
 
 function loadInitialEditorValue() {
@@ -829,6 +966,7 @@ createSessionBtn.addEventListener('click', createSession);
 saveTemplateBtn.addEventListener('click', saveTemplate);
 
 loadInitialEditorValue();
+renderTemplateChips();
 updateSessionList();
 validateEditor(false);
 </script>
