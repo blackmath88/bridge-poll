@@ -4,7 +4,7 @@ A lightweight, self-hosted audience polling tool by [bridge-work.ai](https://bri
 
 The project is now a Vite + React single page app with a Control Center for managing multiple polls, launching sessions, presenting questions, collecting participant responses, and importing/exporting poll JSON.
 
-## What it does   
+## What it does     
 
 - Admin Control Center for poll creation, editing, duplication, deletion, JSON import, and JSON export.
 - Session launcher with six-character session codes, presenter links, participant links, and QR codes.
