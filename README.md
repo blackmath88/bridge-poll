@@ -1,4 +1,14 @@
+<!-- BEGIN public-repo-header -->
+<div align="center">
+
 # bridge-poll
+
+<a href="https://github.com/blackmath88/bridge-poll"><img alt="Primary language: HTML" src="https://img.shields.io/badge/language-HTML-526078?style=flat"></a>
+<a href="https://github.com/blackmath88/bridge-poll#readme"><img alt="README" src="https://img.shields.io/badge/docs-readme-16796f?style=flat"></a>
+<a href="https://github.com/blackmath88/bridge-poll/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/blackmath88/bridge-poll?style=flat&amp;color=737373"></a>
+
+</div>
+<!-- END public-repo-header -->
 
 A lightweight, self-hosted audience polling tool by [bridge-work.ai](https://bridge-work.ai).
 
